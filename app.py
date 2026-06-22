@@ -96,9 +96,21 @@ st.markdown("""
 st.markdown("""
 <div class="title-block">
     <h1>⚽ FIFA World Cup 2026 Predictor</h1>
-    <p>Modelo Dixon-Coles + Distribución de Poisson · Datos: martj42 (1930–2026)</p>
+    <p>Modelo Dixon-Coles + Distribución de Poisson · Datos: martj42 (2018–2026)</p>
 </div>
 """, unsafe_allow_html=True)
+
+# ── SELECCIONES DEL MUNDIAL 2026 ─────────────────────────────────────────────
+WC2026_TEAMS = [
+    "Mexico", "South Africa", "Czech Republic", "South Korea", "Switzerland",
+    "Bosnia and Herzegovina", "Canada", "Qatar", "United States", "Paraguay",
+    "Brazil", "Morocco", "Haiti", "Scotland", "Turkey", "Australia", "Germany",
+    "Curaçao", "Ivory Coast", "Ecuador", "Netherlands", "Japan", "Sweden",
+    "Tunisia", "Spain", "Cape Verde", "Belgium", "Egypt", "Iran", "New Zealand",
+    "France", "Senegal", "Norway", "Iraq", "Argentina", "Algeria", "Jordan",
+    "Austria", "Uzbekistan", "Colombia", "England", "Croatia", "Ghana", "Panama",
+    "Uruguay", "Saudi Arabia", "Portugal", "DR Congo"
+]
 
 # ── DATOS ────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner="Descargando historial de partidos...")
@@ -114,6 +126,9 @@ def load_data():
         df = df.dropna(subset=['home_score', 'away_score'])
         df['home_score'] = df['home_score'].astype(int)
         df['away_score'] = df['away_score'].astype(int)
+        # Solo partidos donde participe al menos una de las 48 selecciones del Mundial
+        mask = df['home_team'].isin(WC2026_TEAMS) | df['away_team'].isin(WC2026_TEAMS)
+        df = df[mask].copy()
         return df
     except Exception as e:
         st.error(f"Error descargando datos: {e}")
@@ -126,31 +141,27 @@ def train_dixon_coles(_df):
     team_idx = {t: i for i, t in enumerate(teams)}
     n = len(teams)
 
-    # Parámetros: [ataque x n] + [defensa x n] + [ventaja_local]
+    # Pre-computar índices y goles como arrays (vectorización)
+    hi = _df['home_team'].map(team_idx).values
+    ai = _df['away_team'].map(team_idx).values
+    hs = _df['home_score'].values
+    as_ = _df['away_score'].values
+
     def neg_log_likelihood(params):
-        attack  = params[:n]
-        defense = params[n:2*n]
+        attack   = params[:n]
+        defense  = params[n:2*n]
         home_adv = params[2*n]
-        ll = 0
-        for _, row in _df.iterrows():
-            hi = team_idx.get(row['home_team'])
-            ai = team_idx.get(row['away_team'])
-            if hi is None or ai is None:
-                continue
-            lam_h = np.exp(attack[hi] - defense[ai] + home_adv)
-            lam_a = np.exp(attack[ai] - defense[hi])
-            ll += poisson.logpmf(row['home_score'], lam_h)
-            ll += poisson.logpmf(row['away_score'], lam_a)
+        lam_h = np.exp(attack[hi] - defense[ai] + home_adv)
+        lam_a = np.exp(attack[ai] - defense[hi])
+        ll = poisson.logpmf(hs, lam_h).sum() + poisson.logpmf(as_, lam_a).sum()
         return -ll
 
     x0 = np.zeros(2 * n + 1)
     x0[2*n] = 0.2  # home advantage prior
 
-    constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x[:n])}]
-
     result = minimize(neg_log_likelihood, x0,
                       method='L-BFGS-B',
-                      options={'maxiter': 200, 'ftol': 1e-6})
+                      options={'maxiter': 150, 'ftol': 1e-6})
 
     params = result.x
     attack  = {t: params[i]     for t, i in team_idx.items()}
