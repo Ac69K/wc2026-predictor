@@ -161,7 +161,7 @@ def train_dixon_coles(_df):
 
     result = minimize(neg_log_likelihood, x0,
                       method='L-BFGS-B',
-                      options={'maxiter': 150, 'ftol': 1e-6})
+                      options={'maxiter': 50, 'ftol': 1e-4})
 
     params = result.x
     attack  = {t: params[i]     for t, i in team_idx.items()}
