@@ -77,7 +77,7 @@ with st.sidebar:
     st.markdown(f"**Selecciones:** {len(teams)}")
     st.markdown("**Período:** 2018–2026 · **Modelo:** Dixon-Coles")
 
-if not predict_btn:
+if 'predict_btn' not in st.session_state or not predict_btn:
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.markdown('<div style="text-align:center;padding:4rem 0;color:#8899aa"><div style="font-size:4rem;margin-bottom:1rem">⚽</div><p style="font-size:1.1rem">Selecciona dos equipos en el panel izquierdo<br>y presiona <strong style="color:#2563eb">Predecir</strong></p></div>', unsafe_allow_html=True)
