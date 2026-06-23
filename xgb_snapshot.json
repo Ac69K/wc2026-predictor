@@ -1,0 +1,256 @@
+{
+  "rankings": {
+    "Mexico": 1635.66,
+    "South Africa": 1415.07,
+    "Czech Republic": 1502.9,
+    "South Korea": 1572.61,
+    "Switzerland": 1641.0,
+    "Bosnia and Herzegovina": 1332.39,
+    "Canada": 1502.31,
+    "Qatar": 1481.69,
+    "United States": 1632.19,
+    "Paraguay": 1423.98,
+    "Brazil": 1772.02,
+    "Morocco": 1676.14,
+    "Haiti": 1278.56,
+    "Scotland": 1461.75,
+    "Turkey": 1475.13,
+    "Australia": 1544.3,
+    "Germany": 1692.19,
+    "Curacao": 1293.35,
+    "Ivory Coast": 1509.12,
+    "Ecuador": 1535.43,
+    "Netherlands": 1759.95,
+    "Japan": 1639.6,
+    "Sweden": 1528.18,
+    "Tunisia": 1504.86,
+    "Spain": 1836.42,
+    "Cape Verde": 1379.17,
+    "Belgium": 1768.14,
+    "Egypt": 1515.64,
+    "Iran": 1622.92,
+    "New Zealand": 1199.04,
+    "France": 1851.92,
+    "Senegal": 1620.87,
+    "Norway": 1472.16,
+    "Iraq": 1435.9,
+    "Argentina": 1889.02,
+    "Algeria": 1486.03,
+    "Jordan": 1377.52,
+    "Austria": 1580.37,
+    "Uzbekistan": 1413.06,
+    "Colombia": 1738.72,
+    "England": 1817.28,
+    "Croatia": 1699.6,
+    "Ghana": 1360.43,
+    "Panama": 1502.55,
+    "Uruguay": 1701.34,
+    "Saudi Arabia": 1433.16,
+    "Portugal": 1752.14,
+    "DR Congo": 1416.91
+  },
+  "form": {
+    "Mexico": {
+      "gf": 1.8,
+      "ga": 0.2
+    },
+    "South Africa": {
+      "gf": 1.0,
+      "ga": 1.2
+    },
+    "Czech Republic": {
+      "gf": 2.1,
+      "ga": 1.1
+    },
+    "South Korea": {
+      "gf": 1.3,
+      "ga": 1.2
+    },
+    "Switzerland": {
+      "gf": 2.0,
+      "ga": 1.0
+    },
+    "Bosnia and Herzegovina": {
+      "gf": 1.5,
+      "ga": 1.3
+    },
+    "Canada": {
+      "gf": 1.4,
+      "ga": 0.5
+    },
+    "Qatar": {
+      "gf": 0.5,
+      "ga": 1.6
+    },
+    "United States": {
+      "gf": 2.2,
+      "ga": 1.6
+    },
+    "Paraguay": {
+      "gf": 1.4,
+      "ga": 1.3
+    },
+    "Brazil": {
+      "gf": 2.6,
+      "ga": 1.1
+    },
+    "Morocco": {
+      "gf": 2.0,
+      "ga": 0.4
+    },
+    "Haiti": {
+      "gf": 1.2,
+      "ga": 1.1
+    },
+    "Scotland": {
+      "gf": 2.0,
+      "ga": 1.1
+    },
+    "Turkey": {
+      "gf": 2.2,
+      "ga": 0.8
+    },
+    "Australia": {
+      "gf": 1.1,
+      "ga": 1.1
+    },
+    "Germany": {
+      "gf": 3.4,
+      "ga": 0.7
+    },
+    "Curacao": {
+      "gf": 1.0,
+      "ga": 1.0
+    },
+    "Ivory Coast": {
+      "gf": 1.9,
+      "ga": 0.9
+    },
+    "Ecuador": {
+      "gf": 1.1,
+      "ga": 0.6
+    },
+    "Netherlands": {
+      "gf": 2.5,
+      "ga": 0.8
+    },
+    "Japan": {
+      "gf": 1.9,
+      "ga": 0.8
+    },
+    "Sweden": {
+      "gf": 1.7,
+      "ga": 2.2
+    },
+    "Tunisia": {
+      "gf": 0.9,
+      "ga": 2.1
+    },
+    "Spain": {
+      "gf": 2.3,
+      "ga": 0.4
+    },
+    "Cape Verde": {
+      "gf": 1.5,
+      "ga": 1.4
+    },
+    "Belgium": {
+      "gf": 2.6,
+      "ga": 0.7
+    },
+    "Egypt": {
+      "gf": 1.6,
+      "ga": 0.8
+    },
+    "Iran": {
+      "gf": 1.6,
+      "ga": 0.7
+    },
+    "New Zealand": {
+      "gf": 0.9,
+      "ga": 1.9
+    },
+    "France": {
+      "gf": 2.7,
+      "ga": 0.9
+    },
+    "Senegal": {
+      "gf": 1.5,
+      "ga": 1.4
+    },
+    "Norway": {
+      "gf": 2.6,
+      "ga": 1.0
+    },
+    "Iraq": {
+      "gf": 0.9,
+      "ga": 1.5
+    },
+    "Argentina": {
+      "gf": 2.6,
+      "ga": 0.2
+    },
+    "Algeria": {
+      "gf": 1.9,
+      "ga": 0.7
+    },
+    "Jordan": {
+      "gf": 1.4,
+      "ga": 1.8
+    },
+    "Austria": {
+      "gf": 2.5,
+      "ga": 0.7
+    },
+    "Uzbekistan": {
+      "gf": 1.2,
+      "ga": 1.2
+    },
+    "Colombia": {
+      "gf": 2.5,
+      "ga": 1.1
+    },
+    "England": {
+      "gf": 2.6,
+      "ga": 0.4
+    },
+    "Croatia": {
+      "gf": 2.0,
+      "ga": 1.4
+    },
+    "Ghana": {
+      "gf": 1.1,
+      "ga": 1.3
+    },
+    "Panama": {
+      "gf": 1.7,
+      "ga": 1.6
+    },
+    "Uruguay": {
+      "gf": 1.1,
+      "ga": 1.0
+    },
+    "Saudi Arabia": {
+      "gf": 0.8,
+      "ga": 1.6
+    },
+    "Portugal": {
+      "gf": 2.2,
+      "ga": 1.0
+    },
+    "DR Congo": {
+      "gf": 1.1,
+      "ga": 0.6
+    }
+  },
+  "features": [
+    "home_rank",
+    "away_rank",
+    "rank_diff",
+    "home_gf",
+    "home_ga",
+    "away_gf",
+    "away_ga",
+    "neutral"
+  ]
+}
