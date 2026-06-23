@@ -4,7 +4,7 @@ from scipy.stats import poisson
 import plotly.graph_objects as go
 import pandas as pd
 import json
-import requests
+import os
 
 st.set_page_config(page_title="WC 2026 Predictor", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
@@ -38,13 +38,19 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-@st.cache_data(show_spinner="Cargando modelo...")
+# ── CARGAR PARÁMETROS (archivo local del repo) ───────────────────────────────
+@st.cache_data
 def load_params():
-    url = "https://raw.githubusercontent.com/Ac69K/wc2026-predictor/main/params.json"
-    r = requests.get(url, timeout=15)
-    return r.json()
+    path = os.path.join(os.path.dirname(__file__), "params.json")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-data     = load_params()
+try:
+    data = load_params()
+except Exception as e:
+    st.error(f"No se pudo cargar params.json: {e}")
+    st.stop()
+
 attack   = data['attack']
 defense  = data['defense']
 home_adv = data['home_adv']
@@ -54,11 +60,11 @@ def predict_match(team_a, team_b, neutral=True, max_goals=8):
     lam_a = np.exp(attack.get(team_a, 0) - defense.get(team_b, 0) + (0 if neutral else home_adv))
     lam_b = np.exp(attack.get(team_b, 0) - defense.get(team_a, 0))
     matrix = np.outer([poisson.pmf(i, lam_a) for i in range(max_goals+1)], [poisson.pmf(j, lam_b) for j in range(max_goals+1)])
-    p_win  = np.sum(np.tril(matrix, -1))
-    p_draw = np.sum(np.diag(matrix))
-    p_lose = np.sum(np.triu(matrix, 1))
+    p_win  = float(np.sum(np.tril(matrix, -1)))
+    p_draw = float(np.sum(np.diag(matrix)))
+    p_lose = float(np.sum(np.triu(matrix, 1)))
     idx = np.unravel_index(np.argmax(matrix), matrix.shape)
-    return {'p_win': round(p_win*100,1), 'p_draw': round(p_draw*100,1), 'p_lose': round(p_lose*100,1), 'lam_a': round(lam_a,2), 'lam_b': round(lam_b,2), 'score': (idx[0], idx[1]), 'matrix': matrix}
+    return {'p_win': round(p_win*100,1), 'p_draw': round(p_draw*100,1), 'p_lose': round(p_lose*100,1), 'lam_a': round(float(lam_a),2), 'lam_b': round(float(lam_b),2), 'score': (int(idx[0]), int(idx[1])), 'matrix': matrix}
 
 def get_confidence(p_win, p_lose):
     diff = abs(p_win - p_lose)
@@ -77,15 +83,14 @@ with st.sidebar:
     st.markdown(f"**Selecciones:** {len(teams)}")
     st.markdown("**Período:** 2018–2026 · **Modelo:** Dixon-Coles")
 
-if 'predict_btn' not in st.session_state or not predict_btn:
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
+if not predict_btn:
+    c1, c2, c3 = st.columns([1,2,1])
+    with c2:
         st.markdown('<div style="text-align:center;padding:4rem 0;color:#8899aa"><div style="font-size:4rem;margin-bottom:1rem">⚽</div><p style="font-size:1.1rem">Selecciona dos equipos en el panel izquierdo<br>y presiona <strong style="color:#2563eb">Predecir</strong></p></div>', unsafe_allow_html=True)
 else:
     if team_a == team_b:
         st.error("Selecciona dos equipos diferentes.")
         st.stop()
-
     result = predict_match(team_a, team_b, neutral)
     conf_label, conf_class = get_confidence(result['p_win'], result['p_lose'])
 
@@ -93,28 +98,29 @@ else:
     with col_score:
         st.markdown(f'<div class="score-box"><div class="teams">{team_a} vs {team_b}</div><div class="score">{result["score"][0]} – {result["score"][1]}</div><div class="label">Marcador más probable</div></div>', unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        with c1: st.markdown(f'<div class="stat-card"><h4>xG {team_a}</h4><p>{result["lam_a"]}</p></div>', unsafe_allow_html=True)
-        with c2: st.markdown(f'<div class="stat-card"><h4>xG {team_b}</h4><p>{result["lam_b"]}</p></div>', unsafe_allow_html=True)
+        cc1, cc2 = st.columns(2)
+        with cc1: st.markdown(f'<div class="stat-card"><h4>xG {team_a}</h4><p>{result["lam_a"]}</p></div>', unsafe_allow_html=True)
+        with cc2: st.markdown(f'<div class="stat-card"><h4>xG {team_b}</h4><p>{result["lam_b"]}</p></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="stat-card"><h4>Confianza</h4><p class="{conf_class}">{conf_label}</p></div>', unsafe_allow_html=True)
 
     with col_probs:
         st.markdown("#### Probabilidades de resultado")
-        fig_bar = go.Figure(go.Bar(x=[f"Gana {team_a}", "Empate", f"Gana {team_b}"], y=[result['p_win'], result['p_draw'], result['p_lose']], marker_color=['#22c55e','#f59e0b','#ef4444'], text=[f"{v}%" for v in [result['p_win'], result['p_draw'], result['p_lose']]], textposition='outside', textfont=dict(color='white', size=14)))
-        fig_bar.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', yaxis=dict(range=[0, max(result['p_win'], result['p_draw'], result['p_lose'])+15], showgrid=False, showticklabels=False), xaxis=dict(tickfont=dict(color='white', size=12)), margin=dict(t=20,b=10,l=0,r=0), height=280)
+        vals = [result['p_win'], result['p_draw'], result['p_lose']]
+        fig_bar = go.Figure(go.Bar(x=[f"Gana {team_a}", "Empate", f"Gana {team_b}"], y=vals, marker_color=['#22c55e','#f59e0b','#ef4444'], text=[f"{v}%" for v in vals], textposition='outside', textfont=dict(color='white', size=14)))
+        fig_bar.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', yaxis=dict(range=[0, max(vals)+15], showgrid=False, showticklabels=False), xaxis=dict(tickfont=dict(color='white', size=12)), margin=dict(t=20,b=10,l=0,r=0), height=280)
         st.plotly_chart(fig_bar, use_container_width=True)
 
     st.markdown("---")
     st.markdown("#### 🔢 Matriz de probabilidades de marcador")
-    max_show = 6
-    matrix = result['matrix'][:max_show+1, :max_show+1] * 100
-    fig_heat = go.Figure(go.Heatmap(z=matrix, x=[str(i) for i in range(max_show+1)], y=[str(i) for i in range(max_show+1)], colorscale=[[0.0,'#0a0e1a'],[0.3,'#1e3a5f'],[0.7,'#2563eb'],[1.0,'#22c55e']], text=[[f"{matrix[i][j]:.1f}%" for j in range(max_show+1)] for i in range(max_show+1)], texttemplate="%{text}", textfont=dict(size=11, color='white'), showscale=False))
+    ms = 6
+    matrix = result['matrix'][:ms+1, :ms+1] * 100
+    fig_heat = go.Figure(go.Heatmap(z=matrix, x=[str(i) for i in range(ms+1)], y=[str(i) for i in range(ms+1)], colorscale=[[0.0,'#0a0e1a'],[0.3,'#1e3a5f'],[0.7,'#2563eb'],[1.0,'#22c55e']], text=[[f"{matrix[i][j]:.1f}%" for j in range(ms+1)] for i in range(ms+1)], texttemplate="%{text}", textfont=dict(size=11, color='white'), showscale=False))
     fig_heat.update_layout(xaxis=dict(title=f"Goles {team_b}", tickfont=dict(color='white'), titlefont=dict(color='#8899aa')), yaxis=dict(title=f"Goles {team_a}", tickfont=dict(color='white'), titlefont=dict(color='#8899aa')), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=10,b=10), height=380)
     st.plotly_chart(fig_heat, use_container_width=True)
 
     st.markdown("#### 🏆 Top 10 marcadores más probables")
-    scores = [{'Marcador': f"{i}–{j}", 'Probabilidad': round(result['matrix'][i][j]*100, 2)} for i in range(max_show+1) for j in range(max_show+1)]
-    scores_df = pd.DataFrame(scores).sort_values('Probabilidad', ascending=False).head(10)
-    fig_top = go.Figure(go.Bar(x=scores_df['Probabilidad'], y=scores_df['Marcador'], orientation='h', marker_color='#2563eb', text=[f"{v}%" for v in scores_df['Probabilidad']], textposition='outside', textfont=dict(color='white', size=11)))
-    fig_top.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, showticklabels=False, range=[0, scores_df['Probabilidad'].max()+3]), yaxis=dict(tickfont=dict(color='white', size=12), autorange='reversed'), margin=dict(t=10,b=10,l=80,r=60), height=320)
+    scores = [{'Marcador': f"{i}–{j}", 'Probabilidad': round(float(result['matrix'][i][j])*100, 2)} for i in range(ms+1) for j in range(ms+1)]
+    sdf = pd.DataFrame(scores).sort_values('Probabilidad', ascending=False).head(10)
+    fig_top = go.Figure(go.Bar(x=sdf['Probabilidad'], y=sdf['Marcador'], orientation='h', marker_color='#2563eb', text=[f"{v}%" for v in sdf['Probabilidad']], textposition='outside', textfont=dict(color='white', size=11)))
+    fig_top.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis=dict(showgrid=False, showticklabels=False, range=[0, sdf['Probabilidad'].max()+3]), yaxis=dict(tickfont=dict(color='white', size=12), autorange='reversed'), margin=dict(t=10,b=10,l=80,r=60), height=320)
     st.plotly_chart(fig_top, use_container_width=True)
