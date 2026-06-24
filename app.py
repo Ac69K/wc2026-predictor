@@ -108,6 +108,35 @@ def conf(pw, pl):
     if d>20: return "Medio","#f59e0b"
     return "Bajo","#ef4444"
 
+def best_quiniela_bet(matrix, team_a, team_b, pts_tendency=3, pts_exact=5, max_goals=6):
+    """
+    Calcula la apuesta de mayor valor esperado para la quiniela.
+    Valor esperado = P(marcador) * pts_exact  +  P(tendencia_correcta) * pts_tendency
+    Retorna el marcador óptimo y su valor esperado.
+    """
+    best_score, best_ev, best_tendency = None, -1, ""
+    candidates = []
+    for i in range(max_goals + 1):
+        for j in range(max_goals + 1):
+            p_exact = float(matrix[i][j])
+            # determinar tendencia del marcador
+            if i > j:   tendency = "home";  p_tend = float(np.sum(np.tril(matrix, -1)))
+            elif i == j: tendency = "draw"; p_tend = float(np.sum(np.diag(matrix)))
+            else:        tendency = "away"; p_tend = float(np.sum(np.triu(matrix, 1)))
+            ev = p_exact * pts_exact + p_tend * pts_tendency
+            candidates.append((i, j, ev, tendency, p_exact, p_tend))
+    candidates.sort(key=lambda x: -x[2])
+    i, j, ev, tendency, p_exact, p_tend = candidates[0]
+    label = f"Gana {team_a}" if tendency == "home" else ("Empate" if tendency == "draw" else f"Gana {team_b}")
+    return {
+        'score': (i, j),
+        'ev': round(ev * 100, 2),
+        'p_exact': round(p_exact * 100, 2),
+        'p_tend': round(p_tend * 100, 1),
+        'tendency_label': label,
+        'top3': [(c[0], c[1], round(c[2]*100,2)) for c in candidates[:3]]
+    }
+
 with st.sidebar:
     st.markdown("### ⚙️ Configuración")
     st.markdown("---")
@@ -155,6 +184,22 @@ else:
     st.markdown(f"#### 🎯 Consenso: {team_a} {avg_a} – {avg_b} {team_b}")
     st.caption(msg)
 
+    # Alerta de sorpresa (punto 2)
+    fav_pct = max(res_xgb['p_win'], res_xgb['p_lose'])
+    if fav_pct < 55:
+        st.warning("🚨 Alerta de sorpresa: El favorito es vulnerable, ideal para apostar al empate.")
+
+    # Optimizador de Valor Esperado para la quiniela (punto 1)
+    st.markdown("---")
+    st.markdown("#### 🏆 Optimizador de Quiniela")
+    bet = best_quiniela_bet(res_xgb['matrix'], team_a, team_b)
+    c1, c2, c3 = st.columns(3)
+    c1.markdown(f'<div class="stat-card"><h4>Apuesta óptima</h4><p style="font-size:1.4rem">{bet["score"][0]}–{bet["score"][1]}</p></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="stat-card"><h4>Valor esperado</h4><p style="font-size:1.4rem;color:#f59e0b">{bet["ev"]} pts</p></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="stat-card"><h4>Tendencia</h4><p style="font-size:1.1rem">{bet["tendency_label"]}<br><span style="font-size:0.9rem;color:#8899aa">{bet["p_tend"]}% prob</span></p></div>', unsafe_allow_html=True)
+    st.caption(f"Marcador exacto: {bet['p_exact']}% · Top 3 apuestas por EV: " +
+               " | ".join([f"{s[0]}–{s[1]} ({s[2]} pts)" for s in bet['top3']]))
+
     # Matriz XGBoost (la mas informativa con features)
     st.markdown("---")
     st.markdown("#### 🔢 Matriz de probabilidades (XGBoost)")
@@ -164,7 +209,7 @@ else:
         colorscale=[[0,'#0a0e1a'],[0.3,'#163a2a'],[0.7,'#22c55e'],[1,'#4ade80']],
         text=[[f"{matrix[i][j]:.1f}%" for j in range(ms+1)] for i in range(ms+1)],
         texttemplate="%{text}", textfont=dict(size=11,color='white'), showscale=False))
-    fig.update_layout(xaxis=dict(title=f"Goles {team_b}", tickfont=dict(color='white'), title_font=dict(color='#8899aa')),
-        yaxis=dict(title=f"Goles {team_a}", tickfont=dict(color='white'), title_font=dict(color='#8899aa')),
+    fig.update_layout(xaxis=dict(title=f"Goles {team_b}", tickfont=dict(color='white'), titlefont=dict(color='#8899aa')),
+        yaxis=dict(title=f"Goles {team_a}", tickfont=dict(color='white'), titlefont=dict(color='#8899aa')),
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=10,b=10), height=380)
     st.plotly_chart(fig, use_container_width=True)
