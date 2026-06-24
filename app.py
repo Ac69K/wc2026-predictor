@@ -209,7 +209,7 @@ else:
         colorscale=[[0,'#0a0e1a'],[0.3,'#163a2a'],[0.7,'#22c55e'],[1,'#4ade80']],
         text=[[f"{matrix[i][j]:.1f}%" for j in range(ms+1)] for i in range(ms+1)],
         texttemplate="%{text}", textfont=dict(size=11,color='white'), showscale=False))
-    fig.update_layout(xaxis=dict(title=f"Goles {team_b}", tickfont=dict(color='white'), titlefont=dict(color='#8899aa')),
-        yaxis=dict(title=f"Goles {team_a}", tickfont=dict(color='white'), titlefont=dict(color='#8899aa')),
+    fig.update_layout(xaxis=dict(title=f"Goles {team_b}", tickfont=dict(color='white'), title_font=dict(color='#8899aa')),
+        yaxis=dict(title=f"Goles {team_a}", tickfont=dict(color='white'), title_font=dict(color='#8899aa')),
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', margin=dict(t=10,b=10), height=380)
     st.plotly_chart(fig, use_container_width=True)
