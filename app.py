@@ -30,6 +30,7 @@ st.markdown("""
     .score-box .label { font-size: 0.7rem; color: #8899aa; text-transform: uppercase; letter-spacing: 2px; margin-top: 0.4rem; }
     div[data-testid="stSelectbox"] label { color: #8899aa !important; font-size: 0.85rem; }
     .stButton > button { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; border-radius: 8px; padding: 0.6rem 2rem; font-weight: 600; width: 100%; }
+    .ctx-note { background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:10px; padding:0.7rem 1rem; color:#fbbf24; font-size:0.85rem; margin-bottom:1rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -67,6 +68,17 @@ teams = sorted(dc['teams'])
 rankings, form = snap['rankings'], snap['form']
 FEATURES = snap['features']
 
+# ── CONTEXTO: presets de ajuste de xG segun situacion del equipo ──────────────
+# Multiplicador aplicado al xG del equipo antes de calcular la matriz.
+CONTEXT_PRESETS = {
+    "Plantilla completa": 1.00,
+    "En racha / motivado (+10%)": 1.10,
+    "Baja menor (−7%)": 0.93,
+    "Baja clave: goleador/creador (−15%)": 0.85,
+    "Múltiples bajas (−25%)": 0.75,
+    "Sin motivación: ya clasificado/eliminado (−12%)": 0.88,
+}
+
 def matrix_from_lambdas(lam_a, lam_b, max_goals=8):
     return np.outer([poisson.pmf(i, lam_a) for i in range(max_goals+1)],
                     [poisson.pmf(j, lam_b) for j in range(max_goals+1)])
@@ -79,14 +91,15 @@ def summarize(matrix):
     return {'p_win': round(p_win*100,1), 'p_draw': round(p_draw*100,1), 'p_lose': round(p_lose*100,1),
             'score': (int(idx[0]), int(idx[1])), 'matrix': matrix}
 
-def predict_dc(a, b, neutral=True):
-    lam_a = np.exp(attack.get(a,0) - defense.get(b,0) + (0 if neutral else home_adv))
-    lam_b = np.exp(attack.get(b,0) - defense.get(a,0))
+def predict_dc(a, b, neutral=True, adj_a=1.0, adj_b=1.0):
+    lam_a = np.exp(attack.get(a,0) - defense.get(b,0) + (0 if neutral else home_adv)) * adj_a
+    lam_b = np.exp(attack.get(b,0) - defense.get(a,0)) * adj_b
+    lam_a, lam_b = max(lam_a, 0.05), max(lam_b, 0.05)
     r = summarize(matrix_from_lambdas(lam_a, lam_b))
     r['lam_a'], r['lam_b'] = round(float(lam_a),2), round(float(lam_b),2)
     return r
 
-def predict_xgb(a, b, neutral=True):
+def predict_xgb(a, b, neutral=True, adj_a=1.0, adj_b=1.0):
     ra, rb = rankings.get(a,1000), rankings.get(b,1000)
     fa, fb = form.get(a,{'gf':1,'ga':1}), form.get(b,{'gf':1,'ga':1})
     x = pd.DataFrame([{
@@ -95,8 +108,8 @@ def predict_xgb(a, b, neutral=True):
         'away_gf': fb['gf'], 'away_ga': fb['ga'],
         'neutral': 1 if neutral else 0
     }])[FEATURES]
-    lam_a = float(model_home.predict(x)[0])
-    lam_b = float(model_away.predict(x)[0])
+    lam_a = float(model_home.predict(x)[0]) * adj_a
+    lam_b = float(model_away.predict(x)[0]) * adj_b
     lam_a, lam_b = max(lam_a, 0.05), max(lam_b, 0.05)
     r = summarize(matrix_from_lambdas(lam_a, lam_b))
     r['lam_a'], r['lam_b'] = round(lam_a,2), round(lam_b,2)
@@ -112,14 +125,11 @@ def best_quiniela_bet(matrix, team_a, team_b, pts_tendency=3, pts_exact=5, max_g
     """
     Calcula la apuesta de mayor valor esperado para la quiniela.
     Valor esperado = P(marcador) * pts_exact  +  P(tendencia_correcta) * pts_tendency
-    Retorna el marcador óptimo y su valor esperado.
     """
-    best_score, best_ev, best_tendency = None, -1, ""
     candidates = []
     for i in range(max_goals + 1):
         for j in range(max_goals + 1):
             p_exact = float(matrix[i][j])
-            # determinar tendencia del marcador
             if i > j:   tendency = "home";  p_tend = float(np.sum(np.tril(matrix, -1)))
             elif i == j: tendency = "draw"; p_tend = float(np.sum(np.diag(matrix)))
             else:        tendency = "away"; p_tend = float(np.sum(np.triu(matrix, 1)))
@@ -143,6 +153,21 @@ with st.sidebar:
     team_a  = st.selectbox("🔵 Equipo A", teams, index=teams.index("Argentina") if "Argentina" in teams else 0)
     team_b  = st.selectbox("🔴 Equipo B", teams, index=teams.index("France") if "France" in teams else 1)
     neutral = st.checkbox("Sede neutral", value=True)
+
+    st.markdown("---")
+    st.markdown("### 🩺 Contexto del partido")
+    st.caption("Ajusta según bajas, motivación o forma. El modelo base es objetivo; aquí aplicas el contexto real.")
+
+    ctx_a_preset = st.selectbox(f"Situación {team_a}", list(CONTEXT_PRESETS.keys()), index=0, key="ctx_a")
+    ctx_a_fine   = st.slider(f"Ajuste fino {team_a} (%)", -30, 30, 0, 1, key="fine_a")
+
+    ctx_b_preset = st.selectbox(f"Situación {team_b}", list(CONTEXT_PRESETS.keys()), index=0, key="ctx_b")
+    ctx_b_fine   = st.slider(f"Ajuste fino {team_b} (%)", -30, 30, 0, 1, key="fine_b")
+
+    # multiplicador final = preset * (1 + ajuste_fino)
+    adj_a = CONTEXT_PRESETS[ctx_a_preset] * (1 + ctx_a_fine/100)
+    adj_b = CONTEXT_PRESETS[ctx_b_preset] * (1 + ctx_b_fine/100)
+
     go_btn  = st.button("⚡ Predecir", use_container_width=True)
     st.markdown("---")
     st.markdown(f"**Ranking {team_a}:** {rankings.get(team_a,'N/A')}")
@@ -162,14 +187,18 @@ def render_model(col, res, team_a, team_b, tag_class, tag_text, box_class=""):
 if not go_btn:
     c1,c2,c3 = st.columns([1,2,1])
     with c2:
-        st.markdown('<div style="text-align:center;padding:4rem 0;color:#8899aa"><div style="font-size:4rem;margin-bottom:1rem">⚽</div><p style="font-size:1.1rem">Selecciona dos equipos y presiona <strong style="color:#2563eb">Predecir</strong><br>para comparar ambos modelos</p></div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;padding:4rem 0;color:#8899aa"><div style="font-size:4rem;margin-bottom:1rem">⚽</div><p style="font-size:1.1rem">Selecciona dos equipos, ajusta el contexto<br>y presiona <strong style="color:#2563eb">Predecir</strong></p></div>', unsafe_allow_html=True)
 else:
     if team_a == team_b:
         st.error("Selecciona dos equipos diferentes.")
         st.stop()
 
-    res_dc  = predict_dc(team_a, team_b, neutral)
-    res_xgb = predict_xgb(team_a, team_b, neutral)
+    res_dc  = predict_dc(team_a, team_b, neutral, adj_a, adj_b)
+    res_xgb = predict_xgb(team_a, team_b, neutral, adj_a, adj_b)
+
+    # Nota de contexto aplicado
+    if abs(adj_a - 1.0) > 0.001 or abs(adj_b - 1.0) > 0.001:
+        st.markdown(f'<div class="ctx-note">🩺 Contexto aplicado · {team_a}: ×{adj_a:.2f} &nbsp;|&nbsp; {team_b}: ×{adj_b:.2f}</div>', unsafe_allow_html=True)
 
     col_dc, col_xgb = st.columns(2, gap="large")
     render_model(col_dc,  res_dc,  team_a, team_b, "tag-dc",  "📐 Dixon-Coles")
@@ -184,12 +213,12 @@ else:
     st.markdown(f"#### 🎯 Consenso: {team_a} {avg_a} – {avg_b} {team_b}")
     st.caption(msg)
 
-    # Alerta de sorpresa (punto 2)
+    # Alerta de sorpresa
     fav_pct = max(res_xgb['p_win'], res_xgb['p_lose'])
     if fav_pct < 55:
         st.warning("🚨 Alerta de sorpresa: El favorito es vulnerable, ideal para apostar al empate.")
 
-    # Optimizador de Valor Esperado para la quiniela (punto 1)
+    # Optimizador de Quiniela
     st.markdown("---")
     st.markdown("#### 🏆 Optimizador de Quiniela")
     bet = best_quiniela_bet(res_xgb['matrix'], team_a, team_b)
@@ -200,7 +229,7 @@ else:
     st.caption(f"Marcador exacto: {bet['p_exact']}% · Top 3 apuestas por EV: " +
                " | ".join([f"{s[0]}–{s[1]} ({s[2]} pts)" for s in bet['top3']]))
 
-    # Matriz XGBoost (la mas informativa con features)
+    # Matriz XGBoost
     st.markdown("---")
     st.markdown("#### 🔢 Matriz de probabilidades (XGBoost)")
     ms = 6
